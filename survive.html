@@ -1,0 +1,787 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0,maximum-scale=1.0,user-scalable=no">
+<title>鏈上生存：韭菜的抉擇 | On-Chain Survival</title>
+<meta name="description" content="你能在幣圈活幾天？面對 FOMO、Rug Pull、清算危機，每一步都是生死抉擇。">
+<meta property="og:title" content="鏈上生存：韭菜的抉擇">
+<meta property="og:description" content="我在幣圈活了 N 天！你能撐更久嗎？">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>⛓️</text></svg>">
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Press+Start+2P&family=Noto+Sans+TC:wght@400;700;900&display=swap');
+
+*{margin:0;padding:0;box-sizing:border-box}
+
+:root{
+--neon:#39ff14;--cyan:#00f0ff;--gold:#ffd700;
+--red:#ff3333;--magenta:#ff00ff;--bg:#08080c;
+--card:#0f0f16;--border:#1a1a28;
+}
+
+body{
+font-family:'Noto Sans TC',sans-serif;
+background:var(--bg);color:#d0d0d0;
+min-height:100vh;min-height:100dvh;
+display:flex;flex-direction:column;
+overflow-x:hidden;
+}
+
+body::after{
+content:'';position:fixed;inset:0;
+background:repeating-linear-gradient(0deg,transparent,transparent 3px,rgba(0,255,0,.015) 3px,rgba(0,255,0,.015) 4px);
+pointer-events:none;z-index:9999;
+}
+
+.game{
+max-width:440px;width:100%;
+margin:0 auto;padding:12px 16px;
+flex:1;display:flex;flex-direction:column;
+}
+
+/* ══ Top Bar ══ */
+.top-bar{
+display:flex;justify-content:space-between;align-items:center;
+padding:8px 0;margin-bottom:4px;
+}
+
+.day-counter{
+font-family:'Press Start 2P',monospace;
+font-size:11px;color:var(--cyan);
+text-shadow:0 0 8px rgba(0,240,255,.4);
+}
+
+.title-mini{
+font-family:'Press Start 2P',monospace;
+font-size:8px;color:#444;
+}
+
+/* ══ Stats ══ */
+.stats{
+display:flex;flex-direction:column;gap:6px;
+padding:12px;
+background:var(--card);
+border:1px solid var(--border);
+border-radius:10px;
+margin-bottom:12px;
+}
+
+.stat-row{
+display:flex;align-items:center;gap:8px;
+}
+
+.stat-icon{font-size:16px;width:24px;text-align:center}
+
+.stat-label{
+font-size:11px;color:#888;
+width:36px;flex-shrink:0;
+}
+
+.stat-bar{
+flex:1;height:10px;
+background:#1a1a28;
+border-radius:5px;overflow:hidden;
+}
+
+.stat-fill{
+height:100%;border-radius:5px;
+transition:width .5s ease-out,background .3s;
+}
+
+.stat-fill.wealth{background:linear-gradient(90deg,#ffd700,#ffaa00)}
+.stat-fill.mental{background:linear-gradient(90deg,#00f0ff,#0088ff)}
+.stat-fill.conviction{background:linear-gradient(90deg,#ff00ff,#8800ff)}
+
+.stat-fill.danger{animation:pulse-bar .6s infinite}
+@keyframes pulse-bar{
+0%,100%{opacity:1}50%{opacity:.5}
+}
+
+.stat-val{
+font-family:'Press Start 2P',monospace;
+font-size:9px;width:32px;text-align:right;
+}
+
+/* ══ Event Card ══ */
+.card-area{
+flex:1;display:flex;flex-direction:column;
+justify-content:center;
+}
+
+.event-card{
+background:var(--card);
+border:1px solid var(--border);
+border-radius:14px;
+padding:24px 20px;
+text-align:center;
+position:relative;
+overflow:hidden;
+animation:fadeIn .4s ease-out;
+}
+
+@keyframes fadeIn{
+from{opacity:0;transform:translateY(15px)}
+to{opacity:1;transform:translateY(0)}
+}
+
+.event-card::before{
+content:'';position:absolute;top:0;left:0;right:0;height:3px;
+background:linear-gradient(90deg,var(--neon),var(--cyan),var(--magenta));
+}
+
+.event-emoji{
+font-size:48px;
+margin-bottom:14px;
+display:block;
+animation:bounceIn .5s ease-out;
+}
+
+@keyframes bounceIn{
+0%{transform:scale(0);opacity:0}
+60%{transform:scale(1.15)}
+100%{transform:scale(1);opacity:1}
+}
+
+.event-text{
+font-size:15px;
+line-height:1.7;
+color:#e0e0e0;
+margin-bottom:20px;
+min-height:60px;
+}
+
+.choices{
+display:flex;flex-direction:column;gap:10px;
+}
+
+.choice-btn{
+width:100%;
+padding:16px 14px;
+border-radius:10px;
+font-size:14px;
+font-weight:700;
+cursor:pointer;
+border:2px solid var(--border);
+background:rgba(255,255,255,.03);
+color:#e0e0e0;
+transition:all .2s;
+text-align:left;
+display:flex;align-items:center;gap:10px;
+}
+
+.choice-btn:hover{
+border-color:var(--neon);
+background:rgba(57,255,20,.06);
+transform:translateX(4px);
+box-shadow:0 0 20px rgba(57,255,20,.1);
+}
+
+.choice-btn:active{
+transform:translateX(2px) scale(.98);
+}
+
+.choice-letter{
+font-family:'Press Start 2P',monospace;
+font-size:10px;
+color:var(--neon);
+background:rgba(57,255,20,.1);
+width:28px;height:28px;
+display:flex;align-items:center;justify-content:center;
+border-radius:6px;flex-shrink:0;
+}
+
+/* ══ Outcome flash ══ */
+.outcome{
+display:none;
+text-align:center;
+padding:16px;
+border-radius:10px;
+margin-top:12px;
+font-size:13px;
+line-height:1.6;
+animation:fadeIn .3s;
+}
+
+.outcome.active{display:block}
+.outcome.good{background:rgba(57,255,20,.08);border:1px solid rgba(57,255,20,.2);color:var(--neon)}
+.outcome.bad{background:rgba(255,51,51,.08);border:1px solid rgba(255,51,51,.2);color:var(--red)}
+.outcome.neutral{background:rgba(0,240,255,.06);border:1px solid rgba(0,240,255,.15);color:var(--cyan)}
+
+/* ══ Game Over ══ */
+.game-over{
+display:none;
+text-align:center;
+animation:fadeIn .5s;
+}
+
+.game-over.active{display:flex;flex-direction:column;align-items:center;justify-content:center;flex:1}
+
+.go-skull{font-size:64px;margin-bottom:12px}
+
+.go-title{
+font-family:'Press Start 2P',monospace;
+font-size:16px;
+color:var(--red);
+text-shadow:0 0 15px rgba(255,51,51,.5);
+margin-bottom:16px;
+}
+
+.go-days{
+font-family:'Press Start 2P',monospace;
+font-size:28px;
+color:var(--gold);
+text-shadow:0 0 20px rgba(255,215,0,.4);
+margin-bottom:4px;
+}
+
+.go-days-label{
+font-size:13px;color:#888;margin-bottom:16px;
+}
+
+.go-cause{
+font-size:14px;
+line-height:1.8;
+color:#ccc;
+max-width:320px;
+margin:0 auto 20px;
+padding:14px;
+background:var(--card);
+border:1px solid var(--border);
+border-radius:10px;
+}
+
+.go-stats{
+display:flex;gap:16px;justify-content:center;
+margin-bottom:20px;
+font-size:12px;color:#666;
+}
+
+.go-stats span{
+display:flex;align-items:center;gap:4px;
+}
+
+.go-scorecard{
+background:#000;
+border:1px solid var(--border);
+border-radius:10px;
+padding:14px;
+font-family:monospace;
+font-size:12px;
+text-align:left;
+color:#888;
+margin-bottom:16px;
+max-width:320px;
+width:100%;
+white-space:pre-line;
+line-height:1.6;
+}
+
+.go-buttons{
+display:flex;gap:10px;width:100%;max-width:320px;
+}
+
+.btn-go{
+flex:1;padding:14px;border-radius:10px;
+font-size:13px;font-weight:700;
+cursor:pointer;border:none;transition:all .2s;
+}
+
+.btn-share-go{
+background:linear-gradient(135deg,var(--magenta),#8800ff);
+color:#fff;
+}
+
+.btn-retry-go{
+background:var(--card);
+color:var(--neon);
+border:1px solid var(--border) !important;
+}
+
+.btn-go:hover{transform:scale(1.03)}
+.btn-go:active{transform:scale(.97)}
+
+/* ══ Start Screen ══ */
+.start-screen{
+display:flex;flex-direction:column;
+align-items:center;justify-content:center;
+flex:1;text-align:center;
+animation:fadeIn .6s;
+}
+
+.start-screen .logo{font-size:72px;margin-bottom:16px}
+
+.start-screen h1{
+font-family:'Press Start 2P',monospace;
+font-size:13px;color:var(--neon);
+text-shadow:0 0 15px rgba(57,255,20,.4);
+line-height:2;margin-bottom:8px;
+}
+
+.start-screen .sub{
+font-size:13px;color:#666;margin-bottom:24px;line-height:1.6;
+}
+
+.start-screen .rules{
+text-align:left;
+background:var(--card);border:1px solid var(--border);
+border-radius:10px;padding:16px;margin-bottom:24px;
+font-size:12px;color:#888;line-height:2;
+max-width:340px;width:100%;
+}
+
+.btn-start{
+padding:18px 48px;
+background:linear-gradient(135deg,var(--neon),#00cc00);
+color:#000;font-family:'Press Start 2P',monospace;
+font-size:12px;font-weight:900;
+border:none;border-radius:12px;cursor:pointer;
+transition:all .2s;
+}
+
+.btn-start:hover{transform:scale(1.05);box-shadow:0 0 30px rgba(57,255,20,.5)}
+
+.footer{
+text-align:center;padding:12px;
+font-size:9px;color:#333;
+}
+
+.footer a{color:var(--neon);text-decoration:none;opacity:.4}
+.footer a:hover{opacity:1}
+</style>
+</head>
+<body>
+
+<div class="game" id="game">
+
+  <!-- ══ Start Screen ══ -->
+  <div class="start-screen" id="start-screen">
+    <div class="logo">⛓️</div>
+    <h1>鏈上生存<br>韭菜的抉擇</h1>
+    <p class="sub">你能在幣圈活幾天？<br>每一步都是生死抉擇。</p>
+    <div class="rules">
+      📊 三大屬性：💰資金 🧠心態 💎信仰<br>
+      📉 任一屬性歸零 = Game Over<br>
+      🎴 每回合面對一個事件，二選一<br>
+      🏆 存活越久，韭菜等級越高
+    </div>
+    <button class="btn-start" onclick="startGame()">開始生存</button>
+  </div>
+
+  <!-- ══ Game UI ══ -->
+  <div id="game-ui" style="display:none;flex:1;display:none;flex-direction:column">
+    <div class="top-bar">
+      <div class="day-counter">DAY <span id="day">1</span></div>
+      <div class="title-mini">ON-CHAIN SURVIVAL</div>
+    </div>
+
+    <div class="stats">
+      <div class="stat-row">
+        <span class="stat-icon">💰</span>
+        <span class="stat-label">資金</span>
+        <div class="stat-bar"><div class="stat-fill wealth" id="bar-wealth" style="width:50%"></div></div>
+        <span class="stat-val" id="val-wealth">50</span>
+      </div>
+      <div class="stat-row">
+        <span class="stat-icon">🧠</span>
+        <span class="stat-label">心態</span>
+        <div class="stat-bar"><div class="stat-fill mental" id="bar-mental" style="width:50%"></div></div>
+        <span class="stat-val" id="val-mental">50</span>
+      </div>
+      <div class="stat-row">
+        <span class="stat-icon">💎</span>
+        <span class="stat-label">信仰</span>
+        <div class="stat-bar"><div class="stat-fill conviction" id="bar-conviction" style="width:50%"></div></div>
+        <span class="stat-val" id="val-conviction">50</span>
+      </div>
+    </div>
+
+    <div class="card-area">
+      <div class="event-card" id="event-card">
+        <span class="event-emoji" id="event-emoji"></span>
+        <div class="event-text" id="event-text"></div>
+        <div class="choices" id="choices"></div>
+      </div>
+      <div class="outcome" id="outcome"></div>
+    </div>
+  </div>
+
+  <!-- ══ Game Over ══ -->
+  <div class="game-over" id="game-over">
+    <div class="go-skull">💀</div>
+    <div class="go-title">GAME OVER</div>
+    <div class="go-days" id="go-days">0</div>
+    <div class="go-days-label">天存活紀錄</div>
+    <div class="go-cause" id="go-cause"></div>
+    <div class="go-stats" id="go-stats"></div>
+    <div class="go-scorecard" id="go-scorecard"></div>
+    <div class="go-buttons">
+      <button class="btn-go btn-share-go" onclick="shareScore()">複製成績分享</button>
+      <button class="btn-go btn-retry-go" onclick="restartGame()">再來一局</button>
+    </div>
+  </div>
+
+</div>
+
+<div class="footer">
+  <a href="https://github.com/q15432123/AutoLogic">AutoLogic</a> |
+  Designed by Google Gemini | Built by Claude Opus |
+  純屬娛樂 NFA DYOR
+</div>
+
+<script>
+// ══════════════════════════════════════
+// Game State
+// ══════════════════════════════════════
+let state = { wealth: 50, mental: 50, conviction: 50, day: 1, history: [] };
+let usedEvents = new Set();
+let gameActive = false;
+
+// ══════════════════════════════════════
+// Events Library (25 events)
+// ══════════════════════════════════════
+const EVENTS = [
+  {
+    emoji: '🐸', text: '某個青蛙頭像的迷因幣暴漲 500%！你的群組瘋狂刷火箭。',
+    a: { label: 'FOMO 追高', w: -20, m: +10, c: +5 },
+    b: { label: '忍住不買', w: +5, m: -10, c: -5 },
+  },
+  {
+    emoji: '🏃', text: '項目方跑路了！但社群有人號召接管（CTO），群情激昂。',
+    a: { label: '加倉力挺 CTO', w: -15, m: +5, c: +15 },
+    b: { label: '認賠殺出', w: -10, m: +10, c: -10 },
+  },
+  {
+    emoji: '🔌', text: '交易所突然拔網線暫停提幣，推特上一片恐慌。',
+    a: { label: '去推特發文維權', w: 0, m: -15, c: +10 },
+    b: { label: '睡覺裝沒事', w: 0, m: +5, c: -10 },
+  },
+  {
+    emoji: '🪂', text: '錢包收到一個空投的未知土狗幣，價值顯示 $50,000。',
+    a: { label: '點擊連結授權賣出', w: -30, m: -10, c: 0 },
+    b: { label: '絕對不碰', w: 0, m: +5, c: +5 },
+  },
+  {
+    emoji: '📉', text: '比特幣一夜暴跌 20%，你的山寨幣跟著腰斬。',
+    a: { label: '恐慌清倉', w: -15, m: +5, c: -20 },
+    b: { label: '閉眼躺平', w: -5, m: -10, c: +10 },
+  },
+  {
+    emoji: '🐳', text: '一個巨鯨地址剛剛買入了你持有的幣，鏈上數據顯示。',
+    a: { label: '跟單加倉', w: -10, m: +10, c: +10 },
+    b: { label: '反向思考賣出', w: +10, m: -5, c: -5 },
+  },
+  {
+    emoji: '💬', text: '群裡有人說認識項目方內部人員，給了一個「必漲」代幣地址。',
+    a: { label: '信了，梭哈買入', w: -25, m: +5, c: +5 },
+    b: { label: '假消息，無視', w: 0, m: +10, c: 0 },
+  },
+  {
+    emoji: '📺', text: '某知名 KOL 直播喊單你持有的幣，觀看人數破萬。',
+    a: { label: '趁熱賣出止盈', w: +20, m: +5, c: -10 },
+    b: { label: '繼續持有等更高', w: -5, m: -5, c: +15 },
+  },
+  {
+    emoji: '⚡', text: '以太坊 Gas Fee 暴漲到 500 Gwei，你有一筆緊急交易要做。',
+    a: { label: '硬著頭皮付 Gas', w: -15, m: -10, c: 0 },
+    b: { label: '等 Gas 降下來', w: 0, m: -5, c: -5 },
+  },
+  {
+    emoji: '🎰', text: '朋友推薦一個號稱年化 2000% 的 DeFi 礦池。',
+    a: { label: '存入一半資金挖礦', w: -20, m: +5, c: +5 },
+    b: { label: '這擺明是龐氏', w: 0, m: +10, c: +5 },
+  },
+  {
+    emoji: '📱', text: '你收到一封自稱 Binance 的郵件，說帳號異常需要驗證。',
+    a: { label: '點開連結輸入密碼', w: -35, m: -15, c: 0 },
+    b: { label: '直接刪除', w: 0, m: +5, c: +5 },
+  },
+  {
+    emoji: '🚀', text: '你關注很久的項目終於開放公售了！白名單沒搶到。',
+    a: { label: '在二級市場高價買入', w: -15, m: +10, c: +10 },
+    b: { label: '算了，等跌了再說', w: 0, m: -5, c: -5 },
+  },
+  {
+    emoji: '🏦', text: '監管機構宣布要對加密貨幣加強管制，市場恐慌。',
+    a: { label: '趁恐慌抄底', w: -10, m: -10, c: +15 },
+    b: { label: '先出場觀望', w: +10, m: +5, c: -15 },
+  },
+  {
+    emoji: '🤖', text: '有人在群裡賣 AI 交易機器人，聲稱月化 50%。',
+    a: { label: '買一個試試', w: -20, m: +5, c: 0 },
+    b: { label: '自己學技術分析', w: 0, m: +5, c: +10 },
+  },
+  {
+    emoji: '💎', text: '你持有的 NFT 地板價漲了 10 倍！群組炸了。',
+    a: { label: '掛單賣出獲利了結', w: +25, m: +10, c: -5 },
+    b: { label: 'Diamond Hands 繼續拿', w: 0, m: -5, c: +15 },
+  },
+  {
+    emoji: '😰', text: '連續虧損一週，你看著越來越少的餘額開始懷疑人生。',
+    a: { label: '加大倉位翻本', w: -20, m: -10, c: +5 },
+    b: { label: '關掉 APP 出去走走', w: 0, m: +15, c: +5 },
+  },
+  {
+    emoji: '🔥', text: '某 L2 鏈突然宣布空投，你之前用過但沒刻意刷。',
+    a: { label: '查看有沒有份', w: +15, m: +10, c: +5 },
+    b: { label: '懶得查，繼續交易', w: 0, m: -5, c: 0 },
+  },
+  {
+    emoji: '🐶', text: '馬斯克又發了一張狗狗的推文，DOGE 瞬間拉盤。',
+    a: { label: '衝進去買 DOGE', w: -10, m: +10, c: +5 },
+    b: { label: '這招用過了，不信', w: +5, m: +5, c: -5 },
+  },
+  {
+    emoji: '🔐', text: '你突然想起有個舊錢包的助記詞寫在某本筆記本上。',
+    a: { label: '翻箱倒櫃找出來', w: +20, m: +5, c: +5 },
+    b: { label: '算了，裡面大概沒錢', w: 0, m: -5, c: -5 },
+  },
+  {
+    emoji: '⚖️', text: '清算機器人對你的槓桿倉位虎視眈眈，保證金率只剩 5%。',
+    a: { label: '追加保證金死扛', w: -15, m: -15, c: +10 },
+    b: { label: '認賠平倉保命', w: -10, m: +10, c: -10 },
+  },
+  {
+    emoji: '🎭', text: '一個匿名帳號爆料某頂流項目是內部人士自賣自買。',
+    a: { label: '趕緊賣出避險', w: +5, m: -5, c: -15 },
+    b: { label: 'FUD 不信，繼續持有', w: -5, m: -5, c: +10 },
+  },
+  {
+    emoji: '🌕', text: '滿月之夜，幣圈老人說「滿月必漲」，你的持倉微微泛綠。',
+    a: { label: '趁微漲止盈一波', w: +10, m: +5, c: -5 },
+    b: { label: '等大漲，TO THE MOON', w: -5, m: +5, c: +10 },
+  },
+  {
+    emoji: '🧧', text: '農曆新年，群主發了紅包，搶到 0.01 BTC！',
+    a: { label: '拿去梭哈新幣', w: -5, m: +10, c: +5 },
+    b: { label: '存起來不動', w: +10, m: +5, c: +5 },
+  },
+  {
+    emoji: '💀', text: '你最信任的 DeFi 協議被駭客攻擊，TVL 歸零。',
+    a: { label: '去治理論壇投票追回', w: -5, m: -15, c: +10 },
+    b: { label: '默默承受，退出 DeFi', w: -10, m: -10, c: -15 },
+  },
+  {
+    emoji: '🎪', text: '有人在推特辦了一場「迷因幣選美大賽」，你的幣被提名了。',
+    a: { label: '瘋狂拉票造勢', w: -5, m: +15, c: +10 },
+    b: { label: '投票就好，低調', w: 0, m: +5, c: 0 },
+  },
+];
+
+// ══════════════════════════════════════
+// Death Causes
+// ══════════════════════════════════════
+const DEATH_CAUSES = {
+  wealth: [
+    '你的錢包餘額顯示 $0.00。連 Gas Fee 都付不起了。你默默關上了電腦，開始思考去超商打工的可能性。',
+    '所有資金蒸發。你試著用 0.001 SOL 買一杯咖啡，交易失敗。遊戲結束。',
+    '帳戶清算通知已發送。你的資產已被交易所強制平倉。電腦桌上只剩下一杯涼掉的咖啡。',
+  ],
+  mental: [
+    '你受不了市場的波動，把手機扔出窗外，並在推特上宣布永遠退出幣圈。三天後你又偷偷下載了交易所 APP。',
+    '連續 48 小時盯盤後，你的大腦當機了。醫生建議你遠離所有跟數字有關的東西，包括計算機。',
+    '你在凌晨三點因為看到一根大陰線而崩潰大哭。你的室友以為發生了什麼大事，結果只是 PEPE 跌了 3%。',
+  ],
+  conviction: [
+    '你對加密貨幣的信仰徹底崩塌了。你賣掉所有持倉，買了定存，並在臉書上發了一篇長文批判區塊鏈。',
+    '信仰歸零。你把「To The Moon」的桌布換成了巴菲特的照片，開始研究股票基金。',
+    '你再也不相信去中心化了。你取消了所有 Crypto KOL 的追蹤，並開始追蹤園藝頻道。',
+  ],
+};
+
+// ══════════════════════════════════════
+// Rank System
+// ══════════════════════════════════════
+function getRank(days) {
+  if (days >= 100) return { title: '鏈上不死鳥', emoji: '🔥', stars: '★★★★★' };
+  if (days >= 60) return { title: '鑽石手傳奇', emoji: '💎', stars: '★★★★☆' };
+  if (days >= 40) return { title: '老韭菜', emoji: '🧙', stars: '★★★☆☆' };
+  if (days >= 25) return { title: '中級韭菜', emoji: '🥬', stars: '★★☆☆☆' };
+  if (days >= 10) return { title: '嫩韭菜', emoji: '🌱', stars: '★☆☆☆☆' };
+  return { title: '秒死散戶', emoji: '💀', stars: '☆☆☆☆☆' };
+}
+
+// ══════════════════════════════════════
+// Game Logic
+// ══════════════════════════════════════
+function startGame() {
+  document.getElementById('start-screen').style.display = 'none';
+  const ui = document.getElementById('game-ui');
+  ui.style.display = 'flex';
+  state = { wealth: 50, mental: 50, conviction: 50, day: 1, history: [] };
+  usedEvents = new Set();
+  gameActive = true;
+  updateBars();
+  nextEvent();
+}
+
+function restartGame() {
+  document.getElementById('game-over').className = 'game-over';
+  const ui = document.getElementById('game-ui');
+  ui.style.display = 'flex';
+  state = { wealth: 50, mental: 50, conviction: 50, day: 1, history: [] };
+  usedEvents = new Set();
+  gameActive = true;
+  updateBars();
+  document.getElementById('day').textContent = '1';
+  nextEvent();
+}
+
+function nextEvent() {
+  if (!gameActive) return;
+
+  document.getElementById('outcome').className = 'outcome';
+
+  // Pick unused event
+  let available = EVENTS.filter((_, i) => !usedEvents.has(i));
+  if (available.length === 0) {
+    usedEvents.clear();
+    available = EVENTS;
+  }
+
+  const idx = Math.floor(Math.random() * available.length);
+  const event = available[idx];
+  const realIdx = EVENTS.indexOf(event);
+  usedEvents.add(realIdx);
+
+  // Render card
+  const card = document.getElementById('event-card');
+  card.style.animation = 'none';
+  card.offsetHeight; // reflow
+  card.style.animation = 'fadeIn .4s ease-out';
+
+  document.getElementById('event-emoji').textContent = event.emoji;
+  document.getElementById('event-text').textContent = event.text;
+
+  const choicesEl = document.getElementById('choices');
+  choicesEl.innerHTML = `
+    <button class="choice-btn" onclick="choose('a',${realIdx})">
+      <span class="choice-letter">A</span>
+      <span>${event.a.label}</span>
+    </button>
+    <button class="choice-btn" onclick="choose('b',${realIdx})">
+      <span class="choice-letter">B</span>
+      <span>${event.b.label}</span>
+    </button>
+  `;
+}
+
+function choose(choice, eventIdx) {
+  if (!gameActive) return;
+
+  const event = EVENTS[eventIdx];
+  const effects = choice === 'a' ? event.a : event.b;
+
+  // Apply effects with some randomness (+-5)
+  const rand = () => Math.floor(Math.random() * 11) - 5;
+  const dw = effects.w + rand();
+  const dm = effects.m + rand();
+  const dc = effects.c + rand();
+
+  state.wealth = Math.max(0, Math.min(100, state.wealth + dw));
+  state.mental = Math.max(0, Math.min(100, state.mental + dm));
+  state.conviction = Math.max(0, Math.min(100, state.conviction + dc));
+
+  state.history.push({ event: event.emoji, choice: effects.label, day: state.day });
+
+  // Show outcome
+  const outcomeEl = document.getElementById('outcome');
+  const net = dw + dm + dc;
+  const cls = net > 5 ? 'good' : (net < -5 ? 'bad' : 'neutral');
+  const parts = [];
+  if (dw !== 0) parts.push(`💰${dw > 0 ? '+' : ''}${dw}`);
+  if (dm !== 0) parts.push(`🧠${dm > 0 ? '+' : ''}${dm}`);
+  if (dc !== 0) parts.push(`💎${dc > 0 ? '+' : ''}${dc}`);
+  outcomeEl.textContent = parts.join('  ');
+  outcomeEl.className = `outcome active ${cls}`;
+
+  updateBars();
+
+  // Check game over
+  if (state.wealth <= 0 || state.mental <= 0 || state.conviction <= 0) {
+    gameActive = false;
+    setTimeout(() => gameOver(), 800);
+    return;
+  }
+
+  // Next day
+  state.day++;
+  document.getElementById('day').textContent = state.day;
+
+  // Disable buttons briefly then show next event
+  document.querySelectorAll('.choice-btn').forEach(b => b.disabled = true);
+  setTimeout(() => nextEvent(), 1200);
+}
+
+function updateBars() {
+  const stats = ['wealth', 'mental', 'conviction'];
+  stats.forEach(s => {
+    const val = state[s];
+    const bar = document.getElementById('bar-' + s);
+    const valEl = document.getElementById('val-' + s);
+    bar.style.width = val + '%';
+    valEl.textContent = val;
+
+    if (val <= 15) {
+      bar.classList.add('danger');
+    } else {
+      bar.classList.remove('danger');
+    }
+  });
+}
+
+function gameOver() {
+  document.getElementById('game-ui').style.display = 'none';
+
+  // Determine cause
+  let causeKey = 'wealth';
+  if (state.mental <= 0) causeKey = 'mental';
+  if (state.conviction <= 0) causeKey = 'conviction';
+
+  const causes = DEATH_CAUSES[causeKey];
+  const cause = causes[Math.floor(Math.random() * causes.length)];
+
+  const rank = getRank(state.day);
+
+  document.getElementById('go-days').textContent = state.day;
+  document.getElementById('go-cause').textContent = cause;
+
+  document.getElementById('go-stats').innerHTML = `
+    <span>💰 ${state.wealth}</span>
+    <span>🧠 ${state.mental}</span>
+    <span>💎 ${state.conviction}</span>
+  `;
+
+  // Build scorecard
+  const scorecard = [
+    `⛓️ 鏈上生存：韭菜的抉擇`,
+    `━━━━━━━━━━━━━━`,
+    `${rank.emoji} ${rank.title} ${rank.stars}`,
+    `📅 存活天數：${state.day} 天`,
+    `💰 資金：${state.wealth} | 🧠 心態：${state.mental} | 💎 信仰：${state.conviction}`,
+    `☠️ 死因：${causeKey === 'wealth' ? '破產' : causeKey === 'mental' ? '心態崩潰' : '信仰崩塌'}`,
+    `━━━━━━━━━━━━━━`,
+    `你能活更久嗎？挑戰 👉`,
+  ].join('\n');
+
+  document.getElementById('go-scorecard').textContent = scorecard;
+
+  document.getElementById('game-over').className = 'game-over active';
+}
+
+function shareScore() {
+  const text = document.getElementById('go-scorecard').textContent + '\n' + window.location.href;
+
+  if (navigator.share) {
+    navigator.share({ title: '鏈上生存：韭菜的抉擇', text: text, url: window.location.href }).catch(() => {});
+  } else {
+    navigator.clipboard.writeText(text).then(() => {
+      const btn = document.querySelector('.btn-share-go');
+      const orig = btn.textContent;
+      btn.textContent = '已複製！去炫耀吧';
+      setTimeout(() => { btn.textContent = orig; }, 2000);
+    }).catch(() => {});
+  }
+}
+</script>
+</body>
+</html>
