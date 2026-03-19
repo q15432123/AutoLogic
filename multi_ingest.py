@@ -6,10 +6,12 @@ Processes them locally and returns a consolidated context object.
 """
 
 import base64
+import tempfile
 from pathlib import Path
 from typing import Any, Dict, Optional
 
 import cv2
+import numpy as np
 import whisper
 
 # Lazy-load whisper model (downloaded once, cached)
@@ -69,6 +71,60 @@ def _encode_image_base64(image_path: str) -> str:
         return base64.b64encode(f.read()).decode("utf-8")
 
 
+def _preprocess_image(image_path: str) -> str:
+    """
+    Preprocess an image for better sketch detection and OCR.
+
+    Applies:
+      - Grayscale conversion for sketch detection
+      - CLAHE (Contrast Limited Adaptive Histogram Equalization) to enhance contrast
+      - Slight Gaussian blur to reduce noise
+
+    Saves the preprocessed image to a temp file and returns its path.
+    """
+    img = cv2.imread(image_path)
+    if img is None:
+        raise ValueError(f"Failed to read image for preprocessing: {image_path}")
+
+    # Convert to grayscale for sketch detection
+    gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
+
+    # Apply CLAHE to auto-enhance contrast
+    clahe = cv2.createCLAHE(clipLimit=2.0, tileGridSize=(8, 8))
+    enhanced = clahe.apply(gray)
+
+    # Apply slight Gaussian blur to reduce noise
+    blurred = cv2.GaussianBlur(enhanced, (3, 3), 0)
+
+    # Save to a temp file preserving the original extension
+    suffix = Path(image_path).suffix or ".png"
+    tmp = tempfile.NamedTemporaryFile(suffix=suffix, delete=False, prefix="autologic_preproc_")
+    cv2.imwrite(tmp.name, blurred)
+    tmp.close()
+
+    print("[multi_ingest] Image preprocessed: contrast enhanced, noise reduced")
+    return tmp.name
+
+
+def _preprocess_audio(audio_path: str) -> str:
+    """
+    Preprocess an audio file before transcription.
+
+    Currently a placeholder that validates the file exists and is non-empty.
+    Real denoising (e.g., noisereduce, pydub) would require additional libraries.
+
+    Returns the audio path as-is.
+    """
+    p = Path(audio_path)
+    if not p.exists():
+        raise FileNotFoundError(f"Audio file not found for preprocessing: {audio_path}")
+    if p.stat().st_size == 0:
+        raise ValueError(f"Audio file is empty: {audio_path}")
+
+    print("[multi_ingest] Audio preprocessed: format validated")
+    return audio_path
+
+
 def ingest_requirements(
     image_path: Optional[str] = None,
     audio_path: Optional[str] = None,
@@ -97,6 +153,15 @@ def ingest_requirements(
         "consolidated_context": "",
     }
 
+    # --- Preprocessing layer ---
+    if image_path:
+        _validate_image(image_path)
+        image_path = _preprocess_image(image_path)
+
+    if audio_path:
+        _validate_audio(audio_path)
+        audio_path = _preprocess_audio(audio_path)
+
     # --- Process text ---
     if text_prompt:
         result["raw_text_prompt"] = text_prompt.strip()
@@ -104,14 +169,12 @@ def ingest_requirements(
 
     # --- Process audio ---
     if audio_path:
-        validated_path = _validate_audio(audio_path)
-        result["transcription"] = _transcribe_audio(validated_path)
+        result["transcription"] = _transcribe_audio(audio_path)
 
     # --- Process image ---
     if image_path:
-        validated_path = _validate_image(image_path)
-        result["image_path"] = validated_path
-        result["image_base64"] = _encode_image_base64(validated_path)
+        result["image_path"] = image_path
+        result["image_base64"] = _encode_image_base64(image_path)
         result["sketch_analysis_placeholder"] = (
             "[Sketch attached — Gemini will analyze this image in Module 2]"
         )

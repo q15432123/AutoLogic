@@ -891,26 +891,120 @@
         </div>
     </section>
 
+    <!-- ═══ Tagline ═══ -->
+    <section style="padding:60px 0;text-align:center;border-top:1px solid var(--border)">
+        <div class="container">
+            <p style="font-size:1.3rem;color:var(--text-secondary);max-width:700px;margin:0 auto">
+                CodeSnap helps you show code;<br>
+                <span style="font-weight:800;font-size:1.5rem;background:linear-gradient(135deg,var(--accent-blue),var(--accent-purple));-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text">AutoLogic helps you SHUT UP AND BUILD.</span>
+            </p>
+        </div>
+    </section>
+
     <!-- ═══ Footer ═══ -->
     <footer>
         <div class="container">
-            <div class="footer-credit">
-                <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
-                    <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5" stroke="var(--accent-blue)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-                </svg>
-                Designed & Architected by <strong>Google Gemini</strong>
+            <div style="display:flex;gap:12px;justify-content:center;flex-wrap:wrap;margin-bottom:16px">
+                <div class="footer-credit">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
+                        <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5" stroke="var(--accent-blue)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                    </svg>
+                    Designed by <strong>Google Gemini</strong>
+                </div>
+                <div class="footer-credit" style="background:rgba(168,85,247,0.08);color:var(--accent-purple)">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--accent-purple)" stroke-width="2"><path d="M12 2v20M2 12h20M5.6 5.6l12.8 12.8M18.4 5.6L5.6 18.4"/></svg>
+                    Written by <strong style="color:var(--accent-purple)">Anthropic Claude Opus</strong>
+                </div>
             </div>
             <p class="footer-brand">AutoLogic v0.1 — Multimodal AI Development Pipeline</p>
+            <p style="font-size:0.8rem;color:var(--text-dim);margin-top:4px">Two AIs. One pipeline. Zero excuses.</p>
             <div class="footer-links">
-                <a href="#">GitHub</a>
-                <a href="#">Documentation</a>
-                <a href="#">Gemini API</a>
+                <a href="https://github.com/q15432123/AutoLogic">GitHub</a>
+                <a href="https://ai.google.dev/">Gemini API</a>
+                <a href="https://docs.anthropic.com/">Claude API</a>
             </div>
         </div>
     </footer>
 
     <!-- ═══ Demo Script ═══ -->
     <script>
+        // ── WebSocket live mode (when server.py is running) ──
+        let ws = null;
+        let liveMode = false;
+
+        function tryConnectWS() {
+            try {
+                const wsUrl = `ws://${location.hostname}:${location.port || 8000}/ws`;
+                ws = new WebSocket(wsUrl);
+                ws.onopen = () => {
+                    liveMode = true;
+                    document.getElementById('btn-run').innerHTML =
+                        '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="5 3 19 12 5 21 5 3"/></svg> Execute Pipeline (LIVE)';
+                };
+                ws.onmessage = (e) => {
+                    const data = JSON.parse(e.data);
+                    const terminal = document.getElementById('terminal');
+                    const div = document.createElement('div');
+                    div.className = 'line';
+                    div.style.animationDelay = '0s';
+
+                    let cls = 'prefix';
+                    if (data.agent && data.agent !== 'system') cls = 'agent';
+                    if (data.progress >= 100) cls = 'success';
+                    if (data.status === 'error') cls = 'warn';
+                    if (data.message && data.message.includes('http')) cls = 'url';
+
+                    const span = document.createElement('span');
+                    span.className = cls;
+                    const prefix = data.agent !== 'system' ? `[${data.agent}] ` : '';
+                    span.textContent = `${prefix}${data.message}`;
+                    div.appendChild(span);
+                    terminal.appendChild(div);
+                    terminal.scrollTop = terminal.scrollHeight;
+
+                    // Update progress bar if present
+                    if (data.progress !== undefined) {
+                        let bar = document.getElementById('progress-bar');
+                        if (!bar) {
+                            bar = document.createElement('div');
+                            bar.id = 'progress-bar';
+                            bar.style.cssText = 'height:3px;background:linear-gradient(90deg,var(--accent-blue),var(--accent-purple));transition:width 0.3s;margin-top:8px;border-radius:2px';
+                            terminal.parentElement.prepend(bar);
+                        }
+                        bar.style.width = data.progress + '%';
+                    }
+
+                    if (data.status === 'complete' || data.status === 'error') {
+                        running = false;
+                        document.getElementById('btn-run').disabled = false;
+                        document.getElementById('btn-run').style.opacity = '1';
+                    }
+                };
+                ws.onclose = () => { liveMode = false; ws = null; };
+                ws.onerror = () => { liveMode = false; ws = null; };
+            } catch(e) { liveMode = false; }
+        }
+
+        // Try connecting on load (silent fail if no server)
+        tryConnectWS();
+
+        async function runLiveDemo() {
+            const terminal = document.getElementById('terminal');
+            terminal.innerHTML = '<div class="line"><span class="prefix">Connecting to AutoLogic server...</span></div>';
+
+            const form = new FormData();
+            form.append('text_prompt', document.getElementById('demo-text').value || 'Build a web app');
+
+            const imgFile = document.getElementById('demo-image').files[0];
+            const audioFile = document.getElementById('demo-audio').files[0];
+            if (imgFile) form.append('image', imgFile);
+            if (audioFile) form.append('audio', audioFile);
+
+            const resp = await fetch('/api/run', { method: 'POST', body: form });
+            const result = await resp.json();
+            ws.send(JSON.stringify({ run_id: result.run_id }));
+        }
+
         const DEMO_LINES = [
             { text: '$ python run_main.py', cls: '' },
             { text: '', cls: '' },
@@ -961,6 +1055,15 @@
         function runDemo() {
             if (running) return;
             running = true;
+
+            // Use live WebSocket mode if server is running
+            if (liveMode && ws && ws.readyState === WebSocket.OPEN) {
+                const btn = document.getElementById('btn-run');
+                btn.disabled = true;
+                btn.style.opacity = '0.5';
+                runLiveDemo();
+                return;
+            }
 
             const terminal = document.getElementById('terminal');
             const textInput = document.getElementById('demo-text').value.trim() || 'Build a web app';
