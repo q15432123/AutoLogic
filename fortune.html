@@ -1,0 +1,764 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0,maximum-scale=1.0,user-scalable=no">
+<title>Web3 韭菜流年運勢測算器 | 你是天選之人還是天生韭菜？</title>
+<meta name="description" content="輸入錢包地址或暱稱，AI 玄學測算你的幣圈流年運勢！韭菜指數、財富密碼、宜忌全揭曉。">
+<meta property="og:title" content="Web3 韭菜流年運勢測算器">
+<meta property="og:description" content="測測你的幣圈命格！天選合約戰神 or 被割的藝術家？">
+<meta property="og:type" content="website">
+<meta name="twitter:card" content="summary_large_image">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🥬</text></svg>">
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Press+Start+2P&family=Noto+Sans+TC:wght@400;700;900&display=swap');
+
+*{margin:0;padding:0;box-sizing:border-box}
+
+:root{
+--neon:#39ff14;
+--neon2:#ff00ff;
+--neon3:#00f0ff;
+--gold:#ffd700;
+--red:#ff3333;
+--bg:#0a0a0a;
+--card:#111;
+--border:#222;
+}
+
+body{
+font-family:'Noto Sans TC',sans-serif;
+background:var(--bg);
+color:#e0e0e0;
+min-height:100vh;
+min-height:100dvh;
+overflow-x:hidden;
+}
+
+/* ══ Scanline overlay ══ */
+body::after{
+content:'';position:fixed;inset:0;
+background:repeating-linear-gradient(0deg,transparent,transparent 2px,rgba(0,255,0,.02) 2px,rgba(0,255,0,.02) 4px);
+pointer-events:none;z-index:9999;
+}
+
+.container{
+max-width:420px;
+margin:0 auto;
+padding:16px;
+}
+
+/* ══ Header ══ */
+.header{
+text-align:center;
+padding:24px 0 16px;
+}
+
+.header h1{
+font-family:'Press Start 2P',monospace;
+font-size:14px;
+color:var(--neon);
+text-shadow:0 0 10px var(--neon),0 0 40px rgba(57,255,20,.3);
+line-height:1.8;
+letter-spacing:1px;
+}
+
+.header .sub{
+margin-top:12px;
+font-size:13px;
+color:#666;
+}
+
+.header .leek{
+font-size:48px;
+display:block;
+margin:12px 0;
+filter:drop-shadow(0 0 20px rgba(57,255,20,.4));
+animation:bounce 2s infinite;
+}
+
+@keyframes bounce{
+0%,100%{transform:translateY(0)}
+50%{transform:translateY(-8px)}
+}
+
+/* ══ Input ══ */
+.input-section{
+background:var(--card);
+border:1px solid var(--border);
+border-radius:12px;
+padding:20px;
+margin:16px 0;
+}
+
+.input-section label{
+display:block;
+font-size:12px;
+color:var(--neon3);
+margin-bottom:8px;
+font-family:'Press Start 2P',monospace;
+letter-spacing:0.5px;
+}
+
+.input-section input{
+width:100%;
+background:#000;
+border:2px solid var(--border);
+border-radius:8px;
+padding:14px;
+color:var(--neon);
+font-size:16px;
+font-family:'Noto Sans TC',monospace;
+outline:none;
+transition:border-color .2s;
+}
+
+.input-section input:focus{
+border-color:var(--neon);
+box-shadow:0 0 15px rgba(57,255,20,.2);
+}
+
+.input-section input::placeholder{
+color:#444;
+font-size:13px;
+}
+
+.btn-main{
+width:100%;
+margin-top:16px;
+padding:16px;
+background:linear-gradient(135deg,#39ff14,#00cc00);
+color:#000;
+font-family:'Press Start 2P',monospace;
+font-size:12px;
+font-weight:900;
+border:none;
+border-radius:10px;
+cursor:pointer;
+text-transform:uppercase;
+letter-spacing:1px;
+transition:all .2s;
+position:relative;
+overflow:hidden;
+}
+
+.btn-main:hover{
+transform:scale(1.02);
+box-shadow:0 0 30px rgba(57,255,20,.5);
+}
+
+.btn-main:active{
+transform:scale(.98);
+}
+
+.btn-main:disabled{
+background:#333;
+color:#666;
+cursor:not-allowed;
+transform:none;
+box-shadow:none;
+}
+
+/* ══ Loading ══ */
+.loading{
+display:none;
+text-align:center;
+padding:40px 20px;
+}
+
+.loading.active{display:block}
+
+.loading .spinner{
+width:60px;height:60px;
+margin:0 auto 20px;
+border:3px solid var(--border);
+border-top-color:var(--neon);
+border-radius:50%;
+animation:spin .8s linear infinite;
+}
+
+@keyframes spin{to{transform:rotate(360deg)}}
+
+.loading .status{
+font-family:'Press Start 2P',monospace;
+font-size:10px;
+color:var(--neon);
+line-height:2;
+min-height:60px;
+}
+
+.loading .progress-bar{
+width:100%;height:4px;
+background:#222;
+border-radius:2px;
+margin-top:16px;
+overflow:hidden;
+}
+
+.loading .progress-fill{
+height:100%;
+background:linear-gradient(90deg,var(--neon),var(--neon3));
+border-radius:2px;
+width:0%;
+transition:width .5s;
+}
+
+/* ══ Result Card ══ */
+.result{
+display:none;
+}
+
+.result.active{display:block}
+
+.result-card{
+background:linear-gradient(180deg,#111 0%,#0a0a0a 100%);
+border:2px solid var(--neon);
+border-radius:16px;
+padding:20px;
+margin:16px 0;
+box-shadow:0 0 30px rgba(57,255,20,.1),inset 0 0 30px rgba(57,255,20,.03);
+position:relative;
+overflow:hidden;
+}
+
+.result-card::before{
+content:'';position:absolute;top:-50%;left:-50%;
+width:200%;height:200%;
+background:conic-gradient(from 0deg,transparent,rgba(57,255,20,.05),transparent,rgba(0,240,255,.05),transparent);
+animation:rotate-bg 10s linear infinite;
+}
+
+@keyframes rotate-bg{to{transform:rotate(360deg)}}
+
+.result-card>*{position:relative;z-index:1}
+
+.result-header{
+text-align:center;
+padding-bottom:16px;
+border-bottom:1px solid #222;
+margin-bottom:16px;
+}
+
+.result-header .mingge{
+font-family:'Press Start 2P',monospace;
+font-size:11px;
+color:var(--gold);
+text-shadow:0 0 10px rgba(255,215,0,.5);
+margin-bottom:4px;
+letter-spacing:0.5px;
+}
+
+.result-header .title{
+font-size:24px;
+font-weight:900;
+background:linear-gradient(135deg,var(--neon),var(--neon3));
+-webkit-background-clip:text;
+-webkit-text-fill-color:transparent;
+background-clip:text;
+}
+
+.result-header .leek-index{
+margin-top:8px;
+font-size:11px;
+color:#888;
+}
+
+.leek-bar{
+width:100%;height:8px;
+background:#222;
+border-radius:4px;
+margin-top:6px;
+overflow:hidden;
+}
+
+.leek-fill{
+height:100%;
+border-radius:4px;
+transition:width 1s ease-out;
+}
+
+/* ── Sections ── */
+.section{
+margin:14px 0;
+padding:12px;
+background:rgba(0,0,0,.5);
+border-radius:10px;
+border:1px solid #1a1a1a;
+}
+
+.section-title{
+font-family:'Press Start 2P',monospace;
+font-size:9px;
+color:var(--neon3);
+margin-bottom:8px;
+letter-spacing:0.5px;
+}
+
+.yi-ji{
+display:grid;
+grid-template-columns:1fr 1fr;
+gap:8px;
+}
+
+.yi,.ji{
+padding:8px;
+border-radius:8px;
+font-size:13px;
+line-height:1.8;
+}
+
+.yi{
+background:rgba(57,255,20,.06);
+border:1px solid rgba(57,255,20,.15);
+}
+
+.ji{
+background:rgba(255,51,51,.06);
+border:1px solid rgba(255,51,51,.15);
+}
+
+.yi .tag,.ji .tag{
+font-family:'Press Start 2P',monospace;
+font-size:8px;
+display:inline-block;
+margin-bottom:6px;
+}
+
+.yi .tag{color:var(--neon)}
+.ji .tag{color:var(--red)}
+
+.coins{
+display:flex;
+flex-direction:column;
+gap:8px;
+}
+
+.coin{
+display:flex;
+justify-content:space-between;
+align-items:center;
+padding:8px 10px;
+background:rgba(255,255,255,.03);
+border-radius:8px;
+}
+
+.coin-name{
+font-weight:900;
+font-size:14px;
+}
+
+.coin-change{
+font-family:'Press Start 2P',monospace;
+font-size:11px;
+font-weight:700;
+}
+
+.coin-change.up{color:var(--neon)}
+.coin-change.down{color:var(--red)}
+
+.comment{
+font-size:14px;
+line-height:1.8;
+color:#ccc;
+text-align:center;
+padding:4px 0;
+font-style:italic;
+}
+
+/* ── Watermark ── */
+.watermark{
+text-align:center;
+margin-top:12px;
+padding-top:12px;
+border-top:1px solid #1a1a1a;
+font-size:10px;
+color:#444;
+font-family:'Press Start 2P',monospace;
+letter-spacing:0.5px;
+}
+
+.watermark a{color:#555;text-decoration:none}
+
+/* ── Actions ── */
+.actions{
+display:flex;
+gap:10px;
+margin:16px 0;
+}
+
+.btn-share,.btn-retry{
+flex:1;
+padding:14px;
+border-radius:10px;
+font-size:13px;
+font-weight:700;
+cursor:pointer;
+border:none;
+transition:all .2s;
+}
+
+.btn-share{
+background:linear-gradient(135deg,var(--neon2),#8b00ff);
+color:#fff;
+}
+
+.btn-retry{
+background:var(--card);
+color:var(--neon);
+border:1px solid var(--border);
+}
+
+.btn-share:hover{transform:scale(1.02);box-shadow:0 0 20px rgba(255,0,255,.3)}
+.btn-retry:hover{border-color:var(--neon)}
+
+/* ── Stats ── */
+.stats{
+text-align:center;
+padding:8px;
+font-size:11px;
+color:#444;
+}
+
+/* ── Footer ── */
+.footer{
+text-align:center;
+padding:20px;
+font-size:10px;
+color:#333;
+}
+
+.footer a{color:var(--neon);text-decoration:none;opacity:.5}
+.footer a:hover{opacity:1}
+
+/* ══ Animations ══ */
+@keyframes slideUp{
+from{opacity:0;transform:translateY(20px)}
+to{opacity:1;transform:translateY(0)}
+}
+
+.result-card .section{
+animation:slideUp .4s ease-out backwards;
+}
+.result-card .section:nth-child(2){animation-delay:.1s}
+.result-card .section:nth-child(3){animation-delay:.2s}
+.result-card .section:nth-child(4){animation-delay:.3s}
+.result-card .section:nth-child(5){animation-delay:.4s}
+</style>
+</head>
+<body>
+
+<div class="container">
+  <!-- Header -->
+  <div class="header">
+    <span class="leek">🥬</span>
+    <h1>WEB3 韭菜<br>流年運勢測算器</h1>
+    <p class="sub">AI 玄學 x 鏈上命理 | 純前端 零授權</p>
+  </div>
+
+  <!-- Input -->
+  <div class="input-section" id="input-section">
+    <label>// ENTER WALLET OR NICKNAME</label>
+    <input type="text" id="input" placeholder="0x... 或輸入你的暱稱" maxlength="64" autocomplete="off" spellcheck="false">
+    <button class="btn-main" id="btn-go" onclick="startReading()">
+      一鍵測算流年運勢
+    </button>
+  </div>
+
+  <!-- Loading -->
+  <div class="loading" id="loading">
+    <div class="spinner"></div>
+    <div class="status" id="loading-status"></div>
+    <div class="progress-bar"><div class="progress-fill" id="progress-fill"></div></div>
+  </div>
+
+  <!-- Result -->
+  <div class="result" id="result">
+    <div class="result-card" id="result-card">
+      <div class="result-header">
+        <div class="mingge" id="r-mingge"></div>
+        <div class="title" id="r-title"></div>
+        <div class="leek-index">韭菜指數 <span id="r-leek-pct"></span></div>
+        <div class="leek-bar"><div class="leek-fill" id="r-leek-fill"></div></div>
+      </div>
+
+      <div class="section">
+        <div class="section-title">// 今日宜忌</div>
+        <div class="yi-ji">
+          <div class="yi"><div class="tag">[ 宜 ]</div><div id="r-yi"></div></div>
+          <div class="ji"><div class="tag">[ 忌 ]</div><div id="r-ji"></div></div>
+        </div>
+      </div>
+
+      <div class="section">
+        <div class="section-title">// 財富密碼</div>
+        <div class="coins" id="r-coins"></div>
+      </div>
+
+      <div class="section">
+        <div class="section-title">// 玄學點評</div>
+        <div class="comment" id="r-comment"></div>
+      </div>
+
+      <div class="watermark">
+        web3-fortune.autologic.dev<br>
+        <a href="https://github.com/q15432123/AutoLogic">Powered by AutoLogic</a>
+        <br>Designed by Gemini | Built by Claude Opus
+      </div>
+    </div>
+
+    <div class="actions">
+      <button class="btn-share" onclick="shareResult()">截圖分享給韭友</button>
+      <button class="btn-retry" onclick="retry()">再測一次</button>
+    </div>
+
+    <div class="stats" id="stats"></div>
+  </div>
+
+  <!-- Footer -->
+  <div class="footer">
+    <a href="https://github.com/q15432123/AutoLogic">AutoLogic</a> | Designed by Google Gemini | Built by Claude Opus<br>
+    本測算純屬娛樂，不構成任何投資建議 DYOR NFA
+  </div>
+</div>
+
+<script>
+// ══════════════════════════════════════
+// Hash function (djb2 variant, deterministic)
+// ══════════════════════════════════════
+function hash(str) {
+  let h = 5381;
+  for (let i = 0; i < str.length; i++) {
+    h = ((h << 5) + h + str.charCodeAt(i)) >>> 0;
+  }
+  return h;
+}
+
+function pick(arr, h, offset = 0) {
+  return arr[(h + offset) % arr.length];
+}
+
+function pickN(arr, h, n, offset = 0) {
+  const result = [];
+  const used = new Set();
+  for (let i = 0; result.length < n && i < arr.length * 3; i++) {
+    const idx = (h + offset + i * 7) % arr.length;
+    if (!used.has(idx)) {
+      used.add(idx);
+      result.push(arr[idx]);
+    }
+  }
+  return result;
+}
+
+// ══════════════════════════════════════
+// Content Banks
+// ══════════════════════════════════════
+const MINGGE = [
+  '天生韭菜命', '天選合約戰神', '被割的藝術家', '土狗幣吸塵器',
+  '逃頂大師', '抄底永動機', '空投獵人', '鑽石手傳奇',
+  '紙手症候群', '山寨幣磁鐵', 'Rug Pull 倖存者', '清算收割機',
+  'FOMO 絕症患者', '牛市最後一棒', '地板價撿漏王', 'Gas Fee 燃燒器',
+  'MEV 三明治餡料', '流動性墓地管理員', 'Airdrop 農民工', '永恆套牢王',
+];
+
+const TITLES = [
+  '命帶劫財 · 逢割必中', '紫微破軍 · 梭哈之命', '太陰化祿 · 空投之星',
+  '七殺坐命 · 合約殺手', '貪狼入廟 · 土狗緣深', '天機化忌 · 追高必套',
+  '武曲化權 · 鑽石手座', '廉貞破軍 · 波段達人', '天府坐命 · 穩健佈局',
+  '天梁化科 · 研究之神', '太陽化祿 · 牛市主角', '巨門化忌 · FUD 體質',
+  '天同化祿 · 躺賺之命', '破軍化權 · 抄底狂人', '天相化科 · 白名單體質',
+];
+
+const YI = [
+  '梭哈迷因幣', '抄底 $BTC', '退群保平安', '去廟裡拜拜',
+  '定投藍籌', '刷空投任務', '清倉山寨', '提幣到冷錢包',
+  '看 K 線冥想', '屯穩定幣', '取消授權合約', '翻舊推文找 Alpha',
+  '做多 $SOL', '鑄造 NFT', '發推喊單', '寫交易日記',
+  '去中心化約會', '賣掉小圖片', '學 DeFi 入門', '跟單大佬',
+];
+
+const JI = [
+  '開百倍槓桿', '聽群友報牌', 'FOMO 追高', '點擊不明連結',
+  '抵押房產炒幣', '借貸梭哈', '跟 KOL 反向操作', '投山寨 Launchpad',
+  '回覆私訊客服', '把助記詞截圖', '在推特曬收益', '碰 LUNA 概念幣',
+  '看空比特幣', '提幣到陌生地址', '用手機挖礦', '買土狗不設止損',
+  '和女友討論幣圈', '凌晨三點開單', '在牛市加槓桿', 'ALL IN MEME',
+];
+
+const COINS = [
+  '$PEPE', '$DOGE', '$SHIB', '$BONK', '$WIF', '$FLOKI', '$TURBO',
+  '$BOME', '$MEW', '$POPCAT', '$MYRO', '$SLERF', '$PORK', '$TOSHI',
+  '$BRETT', '$MAGA', '$TREMP', '$韭菜幣', '$P醬', '$GIGA',
+  '$FARTCOIN', '$AI16Z', '$GOAT', '$MOODENG', '$PNUT', '$NEIRO',
+];
+
+const COMMENTS = [
+  '命帶劫財，建議本月空倉；若要破局，唯有定投比特幣。',
+  '紫微星動，近期有貴人相助；但切忌高槓桿，否則傾家蕩產。',
+  '太陰化祿照命，空投運極佳；記得每日刷鏈上任務，財富自來。',
+  '七殺破軍會照，合約交易凶多吉少；建議改玩現貨保平安。',
+  '貪狼入廟，土狗緣份極深；但買入後請立刻設止損，切勿貪心。',
+  '天機化忌，資訊判斷力下降；本週不宜追熱點，靜待回調。',
+  '武曲化權，握住不放終將翻盤；你的鑽石手是最強的武器。',
+  '流年逢空，建議遠離幣圈三個月；期間可去健身或學做菜。',
+  '財帛宮有化祿，本月有意外之財；但記住，運氣不是實力。',
+  '命宮化忌沖破，凡事小心為上；密碼設強一點，開二步驗證。',
+  '天同化祿，躺平即是最佳策略；不操作就是最好的操作。',
+  '巨門化忌，容易被 FUD 影響；建議退出所有群組，獨立思考。',
+  '破軍化權在遷移宮，旅行中可能遇到 Alpha；背包客模式啟動。',
+  '你的韭菜指數已爆表，但別擔心，韭菜割了還會長。共勉之。',
+  '鏈上數據顯示，你的錢包正在被 MEV 機器人盯上。小心三明治攻擊。',
+  '紫微斗數與鏈上分析一致表明：你是天生的流動性提供者。',
+];
+
+// ══════════════════════════════════════
+// Loading messages
+// ══════════════════════════════════════
+const LOADING_MSGS = [
+  '正在讀取鏈上八字...',
+  '正在分析土狗幣持倉...',
+  '正在連接玄學節點...',
+  '正在計算韭菜指數...',
+  '正在查詢紫微星盤...',
+  '正在掃描 Rug Pull 紀錄...',
+  '正在同步命運區塊...',
+  '正在解析錢包業障...',
+  '正在比對鏈上因果...',
+  '正在召喚中本聰之靈...',
+];
+
+// ══════════════════════════════════════
+// Main logic
+// ══════════════════════════════════════
+let currentInput = '';
+
+function startReading() {
+  const input = document.getElementById('input').value.trim();
+  if (!input) {
+    document.getElementById('input').style.borderColor = 'var(--red)';
+    document.getElementById('input').placeholder = '不輸入怎麼測算啦！';
+    setTimeout(() => {
+      document.getElementById('input').style.borderColor = '';
+      document.getElementById('input').placeholder = '0x... 或輸入你的暱稱';
+    }, 1500);
+    return;
+  }
+
+  currentInput = input;
+  const btn = document.getElementById('btn-go');
+  btn.disabled = true;
+
+  document.getElementById('input-section').style.display = 'none';
+  document.getElementById('result').className = 'result';
+  document.getElementById('loading').className = 'loading active';
+
+  const h = hash(input);
+  const msgs = pickN(LOADING_MSGS, h, 4);
+  const statusEl = document.getElementById('loading-status');
+  const progressEl = document.getElementById('progress-fill');
+
+  let step = 0;
+  const totalSteps = msgs.length;
+
+  function nextStep() {
+    if (step >= totalSteps) {
+      showResult(input);
+      return;
+    }
+    statusEl.textContent = msgs[step];
+    progressEl.style.width = ((step + 1) / totalSteps * 100) + '%';
+    step++;
+    setTimeout(nextStep, 600 + Math.random() * 400);
+  }
+
+  nextStep();
+}
+
+function showResult(input) {
+  document.getElementById('loading').className = 'loading';
+
+  const h = hash(input);
+  const h2 = hash(input + 'salt');
+  const h3 = hash(input + 'salt2');
+
+  // Mingge & Title
+  document.getElementById('r-mingge').textContent = '【' + pick(MINGGE, h) + '】';
+  document.getElementById('r-title').textContent = pick(TITLES, h2);
+
+  // Leek index (30-99)
+  const leekPct = 30 + (h % 70);
+  document.getElementById('r-leek-pct').textContent = leekPct + '%';
+  const leekFill = document.getElementById('r-leek-fill');
+  leekFill.style.width = '0%';
+  leekFill.style.background = leekPct > 70
+    ? 'linear-gradient(90deg,var(--red),#ff6600)'
+    : leekPct > 45
+      ? 'linear-gradient(90deg,var(--gold),#ff9900)'
+      : 'linear-gradient(90deg,var(--neon),var(--neon3))';
+  setTimeout(() => { leekFill.style.width = leekPct + '%'; }, 100);
+
+  // Yi / Ji
+  const yiList = pickN(YI, h, 3);
+  const jiList = pickN(JI, h2, 3);
+  document.getElementById('r-yi').innerHTML = yiList.map(y => '&#x2714; ' + y).join('<br>');
+  document.getElementById('r-ji').innerHTML = jiList.map(j => '&#x2718; ' + j).join('<br>');
+
+  // Coins
+  const coins = pickN(COINS, h3, 3);
+  const coinsHtml = coins.map((c, i) => {
+    const change = ((hash(input + c) % 900) + 10);
+    const isUp = (hash(c + input) % 3) !== 0;
+    const pct = isUp ? '+' + change + '%' : '-' + (change % 95 + 5) + '%';
+    const cls = isUp ? 'up' : 'down';
+    return `<div class="coin">
+      <span class="coin-name">${c}</span>
+      <span class="coin-change ${cls}">${pct}</span>
+    </div>`;
+  }).join('');
+  document.getElementById('r-coins').innerHTML = coinsHtml;
+
+  // Comment
+  document.getElementById('r-comment').textContent = '「' + pick(COMMENTS, h + h2) + '」';
+
+  // Stats
+  const totalReads = 10000 + (h % 90000);
+  document.getElementById('stats').textContent =
+    '已有 ' + totalReads.toLocaleString() + ' 位韭菜完成測算';
+
+  document.getElementById('result').className = 'result active';
+}
+
+function retry() {
+  document.getElementById('input-section').style.display = '';
+  document.getElementById('result').className = 'result';
+  document.getElementById('input').value = '';
+  document.getElementById('input').focus();
+  document.getElementById('btn-go').disabled = false;
+}
+
+function shareResult() {
+  const text = `我在 Web3 韭菜運勢測算器測出了「${document.getElementById('r-mingge').textContent}」！\n${document.getElementById('r-title').textContent}\n韭菜指數：${document.getElementById('r-leek-pct').textContent}\n\n快來測你的：`;
+
+  if (navigator.share) {
+    navigator.share({
+      title: 'Web3 韭菜流年運勢測算器',
+      text: text,
+      url: window.location.href,
+    }).catch(() => {});
+  } else {
+    navigator.clipboard.writeText(text + '\n' + window.location.href).then(() => {
+      const btn = document.querySelector('.btn-share');
+      const orig = btn.textContent;
+      btn.textContent = '已複製到剪貼簿！';
+      setTimeout(() => { btn.textContent = orig; }, 2000);
+    }).catch(() => {});
+  }
+}
+
+// Enter key trigger
+document.getElementById('input').addEventListener('keydown', e => {
+  if (e.key === 'Enter') startReading();
+});
+</script>
+</body>
+</html>
