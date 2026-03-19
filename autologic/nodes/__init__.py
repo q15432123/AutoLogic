@@ -11,6 +11,7 @@ from .deploy_node import DeployNode
 from .ingest_node import IngestNode
 from .planning_node import PlanningNode
 from .preprocess_node import PreprocessNode
+from .verifier_node import VerifierNode
 
 __all__ = [
     "LogicNode",
@@ -19,4 +20,5 @@ __all__ = [
     "PlanningNode",
     "CodeGenNode",
     "DeployNode",
+    "VerifierNode",
 ]

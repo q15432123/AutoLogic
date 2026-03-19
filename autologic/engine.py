@@ -39,6 +39,9 @@ from .nodes.deploy_node import DeployNode
 from .nodes.ingest_node import IngestNode
 from .nodes.planning_node import PlanningNode
 from .nodes.preprocess_node import PreprocessNode
+from .nodes.verifier_node import VerifierNode
+from .reflection import LogicValidator, ReflectiveExecutor
+from .reasoning import ConcurrentReasoner
 
 # Type alias for event handlers: can be sync or async callables
 EventHandler = Union[
@@ -64,7 +67,12 @@ class AutoLogicEngine:
         pipeline_complete — fires once at the end; kwargs: pipeline_result, context
     """
 
-    def __init__(self, config: AutoLogicConfig) -> None:
+    def __init__(
+        self,
+        config: AutoLogicConfig,
+        reflective: bool = False,
+        concurrent_reasoning: bool = False,
+    ) -> None:
         self.config: AutoLogicConfig = config
         self.nodes: List[LogicNode] = []
         self._logger: logging.Logger = setup_logger(
@@ -73,6 +81,19 @@ class AutoLogicEngine:
             log_file=config.log_file,
         )
         self._event_handlers: Dict[str, List[EventHandler]] = {}
+
+        # ── Reflection & Reasoning (Gemini v2 upgrade) ──
+        self.reflective = reflective
+        self.concurrent_reasoning = concurrent_reasoning
+        self._validator = LogicValidator(confidence_threshold=0.6)
+        self._reflective_executor = ReflectiveExecutor(
+            validator=self._validator, max_retries=3
+        ) if reflective else None
+        self._concurrent_reasoner = ConcurrentReasoner(
+            validator=self._validator, num_branches=3
+        ) if concurrent_reasoning else None
+        # Set of node names that should use concurrent reasoning
+        self._critical_nodes: set[str] = set()
 
     # ── Fluent node management ───────────────────
 
@@ -95,6 +116,18 @@ class AutoLogicEngine:
     def remove_node(self, name: str) -> AutoLogicEngine:
         """Remove the first node matching *name*."""
         self.nodes = [n for n in self.nodes if n.name != name]
+        return self
+
+    def mark_critical(self, *node_names: str) -> AutoLogicEngine:
+        """
+        Mark nodes as critical. Critical nodes use concurrent reasoning
+        (multiple parallel branches) when ``concurrent_reasoning=True``.
+
+        Usage::
+
+            engine.mark_critical("planning", "codegen")
+        """
+        self._critical_nodes.update(node_names)
         return self
 
     # ── Event system ─────────────────────────────
@@ -163,15 +196,65 @@ class AutoLogicEngine:
         )
         await self._emit("pipeline_start", context=context)
 
+        original_goal = await context.get("text_prompt", "")
+
         for node in self.nodes:
             # ── Emit node_start ──
             await self._emit("node_start", node=node, context=context)
 
             try:
-                result = await asyncio.wait_for(
-                    node.run(context),
-                    timeout=self.config.node_timeout_seconds,
+                # ── Choose execution strategy ──
+                if (
+                    self.concurrent_reasoning
+                    and self._concurrent_reasoner
+                    and node.name in self._critical_nodes
+                ):
+                    # Concurrent reasoning: run N parallel branches
+                    self._logger.info(
+                        "Using concurrent reasoning for critical node '%s'",
+                        node.name,
+                    )
+                    result, branches = await asyncio.wait_for(
+                        self._concurrent_reasoner.reason(
+                            node, context, original_goal
+                        ),
+                        timeout=self.config.node_timeout_seconds,
+                    )
+                    await self._emit(
+                        "node_reasoning",
+                        node=node,
+                        branches=branches,
+                        context=context,
+                    )
+
+                elif self.reflective and self._reflective_executor:
+                    # Reflective execution: validate + retry with critique
+                    result, attempts = await asyncio.wait_for(
+                        self._reflective_executor.execute_with_reflection(
+                            node, context, original_goal
+                        ),
+                        timeout=self.config.node_timeout_seconds,
+                    )
+                    if len(attempts) > 1:
+                        await self._emit(
+                            "node_reflection",
+                            node=node,
+                            attempts=attempts,
+                            context=context,
+                        )
+
+                else:
+                    # Standard execution
+                    result = await asyncio.wait_for(
+                        node.run(context),
+                        timeout=self.config.node_timeout_seconds,
+                    )
+
+                # Store node result in context for VerifierNodes
+                await context.set(
+                    f"_node_result_{node.name}", result.output
                 )
+
                 node_results.append(result)
                 await self._emit(
                     "node_complete", node=node, result=result, context=context
@@ -293,6 +376,30 @@ class AutoLogicEngine:
         engine.add_node(PlanningNode("planning"))
         engine.add_node(CodeGenNode("codegen"))
         engine.add_node(DeployNode("deploy"))
+        return engine
+
+    @classmethod
+    def reflective_pipeline(cls, config: AutoLogicConfig) -> AutoLogicEngine:
+        """
+        Factory: standard pipeline with self-critique verification after
+        planning and codegen nodes.
+
+        Pipeline::
+
+            Preprocess -> Ingest -> Planning -> VerifyPlan
+            -> CodeGen -> VerifyCode -> Deploy
+
+        Critical nodes (planning, codegen) use concurrent reasoning if enabled.
+        """
+        engine = cls(config, reflective=True, concurrent_reasoning=True)
+        engine.add_node(PreprocessNode("preprocess"))
+        engine.add_node(IngestNode("ingest"))
+        engine.add_node(PlanningNode("planning"))
+        engine.add_node(VerifierNode("verify_plan", target_node="planning"))
+        engine.add_node(CodeGenNode("codegen"))
+        engine.add_node(VerifierNode("verify_code", target_node="codegen"))
+        engine.add_node(DeployNode("deploy"))
+        engine.mark_critical("planning", "codegen")
         return engine
 
     def __repr__(self) -> str:
