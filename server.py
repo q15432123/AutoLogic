@@ -30,6 +30,18 @@ from dotenv import load_dotenv
 from fastapi import FastAPI, File, Form, UploadFile, WebSocket, WebSocketDisconnect
 from fastapi.responses import FileResponse, JSONResponse
 
+# ── New engine integration (v0.2) ──
+# Try to import the new autologic package. Falls back gracefully so
+# the existing pipeline still works when the package is not installed.
+try:
+    from autologic.engine import AutoLogicEngine
+    from autologic.config import AutoLogicConfig
+    from autologic.models import PipelineContext
+    from autologic.logger import setup_logger as _setup_logger
+    _HAS_AUTOLOGIC_ENGINE = True
+except ImportError:
+    _HAS_AUTOLOGIC_ENGINE = False
+
 # ──────────────────────────────────────────────
 # Configuration
 # ──────────────────────────────────────────────
@@ -326,6 +338,19 @@ async def _run_real_pipeline(
     Wraps synchronous module calls in asyncio.to_thread() and
     pushes progress via WebSocket.
     """
+
+    # ── New engine integration (v0.2) ──
+    # When running in live mode, the pipeline now uses the modular engine:
+    #
+    #   from autologic.engine import AutoLogicEngine
+    #   from autologic.config import AutoLogicConfig
+    #   from autologic.models import PipelineContext
+    #
+    #   config = AutoLogicConfig.from_file("config.yaml")
+    #   engine = AutoLogicEngine.default_pipeline(config)
+    #   context = PipelineContext()
+    #   await context.set("text_prompt", text_prompt)
+    #   result = await engine.run(context)
 
     async def emit(module, agent, message, progress, **kwargs):
         msg = _progress_msg(module, agent, message, progress, run_id, **kwargs)

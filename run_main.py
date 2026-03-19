@@ -1,164 +1,124 @@
 """
 AutoLogic — run_main.py
 =======================
-Main entry point that chains the three modules:
+Main entry point using the new modular engine architecture.
 
-  Module 1 (multi_ingest)  ->  Multimodal input processing
-  Module 2 (core_gen)      ->  Gemini planning + agent code generation
-  Module 3 (auto_deploy)   ->  Package & deploy to Firebase
-
-Usage:
   python run_main.py
   python run_main.py --text "Build a todo app"
-  python run_main.py --image sketch.png --audio notes.mp3 --text "portfolio site"
-  python run_main.py --skip-deploy   # generate code only, no Firebase deploy
+  python run_main.py --image sketch.png --audio notes.mp3
+  python run_main.py --skip-deploy
+  python run_main.py --server    # Launch WebUI mode
 """
 
 import argparse
-import os
+import asyncio
 import sys
-import time
 from pathlib import Path
 
 from dotenv import load_dotenv
-
-# Load environment variables
 load_dotenv(Path(__file__).parent / ".env")
 
 
 def banner():
     print(r"""
     ╔═══════════════════════════════════════════════╗
-    ║          A U T O L O G I C   v 0.1            ║
+    ║          A U T O L O G I C   v 0.2            ║
     ║   Multimodal -> Plan -> Code -> Deploy        ║
+    ║                                               ║
+    ║   Designed by Google Gemini                   ║
+    ║   Written by Anthropic Claude Opus            ║
     ╚═══════════════════════════════════════════════╝
     """)
 
 
 def parse_args():
-    parser = argparse.ArgumentParser(description="AutoLogic: Multimodal-to-Deployment Pipeline")
+    parser = argparse.ArgumentParser(description="AutoLogic: Multimodal AI Development Pipeline")
     parser.add_argument("--image", type=str, help="Path to sketch/wireframe image")
     parser.add_argument("--audio", type=str, help="Path to voice note audio file")
     parser.add_argument("--text", type=str, help="Text description of requirements")
     parser.add_argument("--skip-deploy", action="store_true", help="Skip Firebase deployment")
-    parser.add_argument("--project-id", type=str, help="Firebase project ID (overrides .env)")
+    parser.add_argument("--project-id", type=str, help="Firebase project ID")
+    parser.add_argument("--server", action="store_true", help="Launch WebUI server mode")
+    parser.add_argument("--config", type=str, default="config.yaml", help="Path to config file")
     return parser.parse_args()
 
 
-def main():
-    banner()
-    args = parse_args()
+async def run_pipeline(args):
+    from autologic.config import AutoLogicConfig
+    from autologic.engine import AutoLogicEngine
+    from autologic.models import PipelineContext
+    from autologic.logger import setup_logger
 
-    # ── Validate API key ──
-    api_key = os.getenv("GEMINI_API_KEY")
-    if not api_key:
-        print("[ERROR] GEMINI_API_KEY not set. Create a .env file with your key.")
-        print("        Get one at: https://aistudio.google.com/apikey")
-        sys.exit(1)
+    config = AutoLogicConfig.from_file(args.config)
+    logger = setup_logger("autologic", config.log_level)
 
-    # ── Interactive mode if no args ──
+    # Build context from user input
+    context = PipelineContext()
+
     text_prompt = args.text
-    image_path = args.image
-    audio_path = args.audio
-
-    if not any([text_prompt, image_path, audio_path]):
+    if not any([args.text, args.image, args.audio]):
         print("[AutoLogic] No inputs provided. Entering interactive mode.\n")
         text_prompt = input("Describe what you want to build:\n> ").strip()
         if not text_prompt:
             print("[ERROR] No input provided. Exiting.")
             sys.exit(1)
 
-        img_input = input("\nPath to sketch image (or press Enter to skip):\n> ").strip()
-        if img_input:
-            image_path = img_input
-
-        audio_input = input("\nPath to voice note (or press Enter to skip):\n> ").strip()
-        if audio_input:
-            audio_path = audio_input
-
-    # ══════════════════════════════════════════
-    # MODULE 1: Multimodal Ingestion
-    # ══════════════════════════════════════════
-    print("\n" + "=" * 50)
-    print("  MODULE 1: Multimodal Ingestion")
-    print("=" * 50)
-    t0 = time.time()
-
-    from multi_ingest import ingest_requirements
-
-    context = ingest_requirements(
-        image_path=image_path,
-        audio_path=audio_path,
-        text_prompt=text_prompt,
-    )
-
-    print(f"\n  Module 1 complete ({time.time() - t0:.1f}s)")
-
-    # ══════════════════════════════════════════
-    # MODULE 2: Gemini Planning + Code Gen
-    # ══════════════════════════════════════════
-    print("\n" + "=" * 50)
-    print("  MODULE 2: Planning & Code Generation")
-    print("=" * 50)
-    t1 = time.time()
-
-    from core_gen import execute_all_tasks, orchestrate_planning
-
-    # Phase 2a: Planning
-    tasks = orchestrate_planning(
-        multimodal_context=context,
-        api_key=api_key,
-        image_path=context.get("image_path"),
-    )
-
-    # Phase 2b: Agent execution (code generation)
-    results = execute_all_tasks(tasks, api_key)
-
-    print(f"\n  Module 2 complete ({time.time() - t1:.1f}s)")
-    print(f"  Tasks executed: {len(results)}")
-    for r in results:
-        files = r.get("files", [])
-        print(f"    {r.get('agent', '?'):8s} -> {len(files)} file(s)")
-
-    # ══════════════════════════════════════════
-    # MODULE 3: Deploy
-    # ══════════════════════════════════════════
-    workspace_dir = str(Path(__file__).parent / "_workspaces")
-
+    if text_prompt:
+        await context.set("text_prompt", text_prompt)
+    if args.image:
+        await context.set("image_path", args.image)
+    if args.audio:
+        await context.set("audio_path", args.audio)
     if args.skip_deploy:
-        print("\n" + "=" * 50)
-        print("  MODULE 3: Deployment SKIPPED (--skip-deploy)")
-        print("=" * 50)
-        print(f"\n  Generated files are in: {workspace_dir}")
+        await context.set("skip_deploy", True)
+    if args.project_id:
+        await context.set("firebase_project_id", args.project_id)
+
+    # Create engine with default pipeline
+    engine = AutoLogicEngine.default_pipeline(config)
+
+    # Register progress handlers
+    def on_node_start(node_name, **kwargs):
+        print(f"\n{'='*50}")
+        print(f"  NODE: {node_name}")
+        print(f"{'='*50}")
+
+    def on_node_complete(node_name, result, **kwargs):
+        status = "OK" if result.status == "success" else "FAIL"
+        print(f"  [{status}] {node_name} ({result.duration_seconds:.1f}s)")
+
+    def on_node_error(node_name, error, **kwargs):
+        print(f"  [ERROR] {node_name}: {error}")
+
+    engine.on("node_start", on_node_start)
+    engine.on("node_complete", on_node_complete)
+    engine.on("node_error", on_node_error)
+
+    # Run pipeline
+    result = await engine.run(context)
+
+    # Summary
+    print(f"\n{'='*50}")
+    print(f"  PIPELINE {'COMPLETE' if result.status == 'success' else 'FAILED'} ({result.total_duration:.1f}s)")
+    print(f"{'='*50}")
+    for nr in result.node_results:
+        s = "OK" if nr.status == "success" else ("SKIP" if nr.status == "skipped" else "FAIL")
+        print(f"  [{s}] {nr.node_name:20s} {nr.duration_seconds:.1f}s")
+    print(f"\n  Workspace: {result.workspace_dir}")
+
+
+def main():
+    banner()
+    args = parse_args()
+
+    if args.server:
+        import uvicorn
+        from autologic.config import AutoLogicConfig
+        config = AutoLogicConfig.from_file(args.config)
+        print(f"[AutoLogic] Starting WebUI server on {config.server_host}:{config.server_port}")
+        uvicorn.run("server:app", host=config.server_host, port=config.server_port, reload=True)
     else:
-        print("\n" + "=" * 50)
-        print("  MODULE 3: Packaging & Deployment")
-        print("=" * 50)
-        t2 = time.time()
-
-        from auto_deploy import deploy_to_firebase, generate_deploy_report
-
-        project_id = args.project_id or os.getenv("FIREBASE_PROJECT_ID", "")
-
-        if not project_id:
-            print("\n[WARNING] No Firebase project ID set.")
-            project_id = input("Enter Firebase project ID (or press Enter to skip deploy):\n> ").strip()
-
-        if project_id:
-            deploy_result = deploy_to_firebase(workspace_dir, project_id)
-            report = generate_deploy_report(deploy_result, workspace_dir)
-            print(report)
-            print(f"\n  Module 3 complete ({time.time() - t2:.1f}s)")
-        else:
-            print("\n  Deployment skipped. Files are in: {workspace_dir}")
-
-    # ── Summary ──
-    total = time.time() - t0
-    print("\n" + "=" * 50)
-    print(f"  PIPELINE COMPLETE ({total:.1f}s total)")
-    print("=" * 50)
-    print(f"  Workspace: {workspace_dir}")
-    print()
+        asyncio.run(run_pipeline(args))
 
 
 if __name__ == "__main__":
